@@ -1,13 +1,13 @@
 "use client"
 
-import { BookOpen, Target, BarChart3, Download, CheckCircle2, Circle, Loader2, FileDown, FileType, Pencil } from "lucide-react"
+import { BookOpen, Target, BarChart3, Download, CheckCircle2, Circle, Loader2, FileDown, FileType, FileIcon, Pencil } from "lucide-react"
 import { useQuery } from "@tanstack/react-query"
 import { cn } from "@/lib/utils"
 import type { Project, Chapter } from "@/types"
 
 interface ResearchPanelProps {
   projectId: string
-  onExport?: (format: "docx" | "html") => void
+  onExport?: (format: "docx" | "html" | "pdf") => void
   exporting?: string | null
   onOpenSettings?: () => void
 }
@@ -155,6 +155,18 @@ export function ResearchPanel({ projectId, onExport, exporting, onOpenSettings }
             Export
           </h3>
           <div className="space-y-2">
+            <button
+              onClick={() => onExport?.("pdf")}
+              disabled={completedChapters === 0 || exporting !== null}
+              className="flex w-full items-center gap-2 rounded-lg border px-3 py-2 text-sm hover:bg-muted transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {exporting === "pdf" ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <FileIcon className="h-4 w-4" />
+              )}
+              Export as PDF
+            </button>
             <button
               onClick={() => onExport?.("docx")}
               disabled={completedChapters === 0 || exporting !== null}

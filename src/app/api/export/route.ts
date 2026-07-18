@@ -9,6 +9,18 @@ import {
   AlignmentType,
   PageBreak,
 } from "docx"
+import { jsPDF } from "jspdf"
+
+type ProjectData = {
+  topic: string
+  academicLevel: string
+  department: string
+  institution: string
+  country: string
+  methodology: string
+  citationStyle: string
+  chapters: { chapterNumber: number; title: string; content: string }[]
+}
 
 export async function GET(request: Request) {
   try {
@@ -42,6 +54,10 @@ export async function GET(request: Request) {
       return await exportDocx(project)
     }
 
+    if (format === "pdf") {
+      return await exportPdf(project)
+    }
+
     return await exportHtml(project)
   } catch (error) {
     console.error("Export error:", error)
@@ -49,16 +65,7 @@ export async function GET(request: Request) {
   }
 }
 
-async function exportDocx(project: {
-  topic: string
-  academicLevel: string
-  department: string
-  institution: string
-  country: string
-  methodology: string
-  citationStyle: string
-  chapters: { chapterNumber: number; title: string; content: string }[]
-}) {
+async function exportDocx(project: ProjectData) {
   const children: Paragraph[] = []
 
   // Title page
@@ -182,16 +189,162 @@ async function exportDocx(project: {
   })
 }
 
-async function exportHtml(project: {
-  topic: string
-  academicLevel: string
-  department: string
-  institution: string
-  country: string
-  methodology: string
-  citationStyle: string
-  chapters: { chapterNumber: number; title: string; content: string }[]
-}) {
+async function exportPdf(project: ProjectData) {
+  const doc = new jsPDF({
+    orientation: "portrait",
+    unit: "mm",
+    format: "a4",
+  })
+
+  const pageWidth = doc.internal.pageSize.getWidth()
+  const pageHeight = doc.internal.pageSize.getHeight()
+  const margin = 25
+  const contentWidth = pageWidth - margin * 2
+  const lineHeight = 6
+
+  let y = 0
+
+  function checkPageBreak(needed: number) {
+    if (y + needed > pageHeight - margin) {
+      doc.addPage()
+      y = margin
+    }
+  }
+
+  function addPageNumber() {
+    const totalPages = doc.getNumberOfPages()
+    for (let i = 1; i <= totalPages; i++) {
+      doc.setPage(i)
+      doc.setFont("times", "normal")
+      doc.setFontSize(10)
+      doc.setTextColor(100)
+      doc.text(String(i), pageWidth / 2, pageHeight - 10, { align: "center" })
+    }
+  }
+
+  // Title page
+  doc.setFont("times", "bold")
+  doc.setFontSize(22)
+  doc.setTextColor(0)
+  y = pageHeight / 3
+  const titleLines = doc.splitTextToSize(project.topic, contentWidth)
+  doc.text(titleLines, pageWidth / 2, y, { align: "center" })
+  y += titleLines.length * 10 + 15
+
+  doc.setFont("times", "normal")
+  doc.setFontSize(12)
+  doc.setTextColor(60)
+  doc.text(`Academic Level: ${project.academicLevel}`, pageWidth / 2, y, { align: "center" })
+  y += 8
+  doc.text(`Department: ${project.department}`, pageWidth / 2, y, { align: "center" })
+  y += 8
+  doc.text(`${project.institution}, ${project.country}`, pageWidth / 2, y, { align: "center" })
+  y += 8
+  doc.text(`Citation Style: ${project.citationStyle}`, pageWidth / 2, y, { align: "center" })
+
+  // Table of Contents page
+  doc.addPage()
+  y = margin
+  doc.setFont("times", "bold")
+  doc.setFontSize(18)
+  doc.setTextColor(0)
+  doc.text("Table of Contents", pageWidth / 2, y, { align: "center" })
+  y += 15
+
+  doc.setFont("times", "normal")
+  doc.setFontSize(12)
+  for (const chapter of project.chapters) {
+    checkPageBreak(10)
+    const label = `Chapter ${chapter.chapterNumber}: ${chapter.title}`
+    doc.text(label, margin, y)
+    y += 8
+  }
+
+  // Chapters
+  for (const chapter of project.chapters) {
+    doc.addPage()
+    y = margin
+
+    // Chapter title
+    doc.setFont("times", "bold")
+    doc.setFontSize(18)
+    doc.setTextColor(0)
+    const chapterTitle = `Chapter ${chapter.chapterNumber}: ${chapter.title}`
+    doc.text(chapterTitle, pageWidth / 2, y, { align: "center" })
+    y += 15
+
+    const paragraphs = chapter.content
+      .split(/\n\n+/)
+      .map((p) => p.trim())
+      .filter(Boolean)
+
+    for (const para of paragraphs) {
+      if (para.startsWith("# ")) {
+        checkPageBreak(15)
+        y += 5
+        doc.setFont("times", "bold")
+        doc.setFontSize(15)
+        doc.setTextColor(0)
+        const text = para.replace(/^# /, "")
+        const lines = doc.splitTextToSize(text, contentWidth)
+        doc.text(lines, margin, y)
+        y += lines.length * 7 + 5
+      } else if (para.startsWith("## ")) {
+        checkPageBreak(12)
+        y += 3
+        doc.setFont("times", "bold")
+        doc.setFontSize(13)
+        doc.setTextColor(30)
+        const text = para.replace(/^## /, "")
+        const lines = doc.splitTextToSize(text, contentWidth)
+        doc.text(lines, margin, y)
+        y += lines.length * 6.5 + 4
+      } else if (para.startsWith("### ")) {
+        checkPageBreak(10)
+        y += 2
+        doc.setFont("times", "bold")
+        doc.setFontSize(12)
+        doc.setTextColor(50)
+        const text = para.replace(/^### /, "")
+        const lines = doc.splitTextToSize(text, contentWidth)
+        doc.text(lines, margin, y)
+        y += lines.length * 6 + 3
+      } else if (para.startsWith("- ") || para.startsWith("* ")) {
+        const text = para.replace(/^[-*] /, "")
+        const lines = doc.splitTextToSize(text, contentWidth - 8)
+        checkPageBreak(lines.length * lineHeight + 2)
+        doc.setFont("times", "normal")
+        doc.setFontSize(11)
+        doc.setTextColor(0)
+        doc.text("\u2022", margin + 2, y)
+        doc.text(lines, margin + 8, y)
+        y += lines.length * lineHeight + 2
+      } else {
+        const lines = doc.splitTextToSize(para, contentWidth)
+        checkPageBreak(lines.length * lineHeight + 4)
+        doc.setFont("times", "normal")
+        doc.setFontSize(11)
+        doc.setTextColor(0)
+        doc.text(lines, margin, y)
+        y += lines.length * lineHeight + 4
+      }
+    }
+  }
+
+  addPageNumber()
+
+  const buffer = Buffer.from(doc.output("arraybuffer"))
+
+  return new Response(new Uint8Array(buffer), {
+    headers: {
+      "Content-Type": "application/pdf",
+      "Content-Disposition": `attachment; filename="${sanitize(project.topic)}.pdf"`,
+      "Content-Length": buffer.length.toString(),
+    },
+  })
+}
+
+async function exportHtml(project: ProjectData) {
   const chaptersHtml = project.chapters
     .map(
       (ch) => `

@@ -19,6 +19,7 @@ import {
   Eye,
   FileDown,
   FileType,
+  FileIcon,
   Loader2,
   Check,
   Settings,
@@ -47,14 +48,14 @@ const chapters = [
   { number: 7, title: "Appendices", icon: FolderOpen },
 ]
 
-async function triggerExport(projectId: string, format: "docx" | "html") {
+async function triggerExport(projectId: string, format: "docx" | "html" | "pdf") {
   const res = await fetch(`/api/export?projectId=${projectId}&format=${format}`)
   if (!res.ok) {
     const err = await res.json().catch(() => ({ error: "Export failed" }))
     throw new Error(err.error || "Export failed")
   }
   const blob = await res.blob()
-  const ext = format === "docx" ? "docx" : "html"
+  const ext = format === "docx" ? "docx" : format === "pdf" ? "pdf" : "html"
   const url = URL.createObjectURL(blob)
   const a = document.createElement("a")
   a.href = url
@@ -111,7 +112,7 @@ export default function ResearchWorkspace() {
     setView((v) => (v === "chat" ? "generated" : "chat"))
   }, [])
 
-  const handleExport = async (format: "docx" | "html") => {
+  const handleExport = async (format: "docx" | "html" | "pdf") => {
     setExporting(format)
     setExportOpen(false)
     try {
@@ -182,7 +183,14 @@ export default function ResearchWorkspace() {
               )}
             </button>
             {exportOpen && (
-              <div className="absolute right-0 top-full mt-1 w-44 rounded-lg border bg-background shadow-lg z-50 py-1">
+              <div className="absolute right-0 top-full mt-1 w-48 rounded-lg border bg-background shadow-lg z-50 py-1">
+                <button
+                  onClick={() => handleExport("pdf")}
+                  className="flex w-full items-center gap-3 px-4 py-2 text-sm hover:bg-muted transition-colors"
+                >
+                  <FileIcon className="h-4 w-4" />
+                  Export as PDF
+                </button>
                 <button
                   onClick={() => handleExport("docx")}
                   className="flex w-full items-center gap-3 px-4 py-2 text-sm hover:bg-muted transition-colors"
@@ -195,7 +203,7 @@ export default function ResearchWorkspace() {
                   className="flex w-full items-center gap-3 px-4 py-2 text-sm hover:bg-muted transition-colors"
                 >
                   <FileType className="h-4 w-4" />
-                  Export as HTML (PDF-ready)
+                  Export as HTML
                 </button>
               </div>
             )}
