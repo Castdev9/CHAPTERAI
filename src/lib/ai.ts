@@ -1,5 +1,5 @@
 import { createOpenAI } from "@ai-sdk/openai"
-import { streamText, type CoreSettings } from "ai"
+import { streamText } from "ai"
 
 let cachedClient: ReturnType<typeof createOpenAI> | null = null
 
