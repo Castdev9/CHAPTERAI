@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server"
-import { getModel, createStreamResponse } from "@/lib/ai"
+import { getModel, createStreamResponse, isAIConfigured, getAIErrorMessage } from "@/lib/ai"
 import { generateText } from "ai"
 
 export const runtime = "nodejs"
@@ -9,9 +9,8 @@ export async function GET(request: Request) {
   const mode = url.searchParams.get("mode") || "both"
 
   try {
-    const apiKey = process.env.OPENROUTER_API_KEY
-    if (!apiKey) {
-      return NextResponse.json({ error: "OPENROUTER_API_KEY not set" }, { status: 500 })
+    if (!isAIConfigured()) {
+      return NextResponse.json({ error: getAIErrorMessage() || "AI not configured" }, { status: 500 })
     }
 
     const model = getModel()

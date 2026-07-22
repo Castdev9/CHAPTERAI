@@ -1,11 +1,12 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
-import { getChatModel, getChapterModel, createStreamResponse } from "@/lib/ai"
+import { getChatModel, getChapterModel, createStreamResponse, isAIConfigured, getAIErrorMessage } from "@/lib/ai"
 import { processUserPrompt, getAgentForChapter } from "@/agents"
 import type { AgentContext } from "@/agents/types"
 import { fetchAndParseProjectUploads, formatUploadsForPrompt } from "@/lib/file-parser"
 
 export const runtime = "nodejs"
+export const maxDuration = 120
 
 export async function POST(request: Request) {
   try {
@@ -14,6 +15,13 @@ export async function POST(request: Request) {
       projectId: string
       chapterNumber: number
       content: string
+    }
+
+    if (!projectId || !chapterNumber || !content) {
+      return NextResponse.json(
+        { error: "Missing required fields: projectId, chapterNumber, content" },
+        { status: 400 }
+      )
     }
 
     const project = await prisma.project.findUnique({
@@ -34,7 +42,6 @@ export async function POST(request: Request) {
       take: 20,
     })
 
-    // Fetch completed chapters so agents can reference prior work
     const completedChapters = await prisma.chapter.findMany({
       where: { projectId, status: "COMPLETE" },
       orderBy: { chapterNumber: "asc" },
@@ -43,7 +50,6 @@ export async function POST(request: Request) {
     const generatedChapters: Record<number, string> = {}
     for (const ch of completedChapters) {
       if (ch.chapterNumber !== chapterNumber && ch.content) {
-        // Truncate to avoid context overflow — send first 3000 chars of each chapter
         generatedChapters[ch.chapterNumber] = ch.content.slice(0, 3000)
       }
     }
@@ -72,7 +78,6 @@ export async function POST(request: Request) {
 
     let prompt = content
 
-    // For Chapter 4 (Analysis), fetch and parse uploaded research data files
     let uploadDataText = ""
     if (chapterNumber === 4) {
       const uploads = await fetchAndParseProjectUploads(projectId)
@@ -102,7 +107,6 @@ IMPORTANT: Use the uploaded research data above to analyze, interpret, and discu
 Analyze, interpret, and discuss the above uploaded data in your response. Reference specific findings from the data.`
     }
 
-    // Use gpt-4o for full chapter generation, gpt-4o-mini for regular chat
     const model = isFullChapterRequest ? getChapterModel() : getChatModel()
 
     if (model) {
@@ -115,67 +119,81 @@ Analyze, interpret, and discuss the above uploaded data in your response. Refere
       })
 
       if (stream) {
-        let fullResponse = ""
         const encoder = new TextEncoder()
+        let fullResponse = ""
 
-        const responseStream = new ReadableStream({
-          async start(controller) {
-            try {
-              for await (const chunk of stream.fullStream) {
-                if (chunk.type === "text-delta" && chunk.textDelta) {
-                  fullResponse += chunk.textDelta
-                  controller.enqueue(
-                    encoder.encode(
-                      JSON.stringify({ type: "text", content: chunk.textDelta }) + "\n"
-                    )
-                  )
-                } else if (chunk.type === "error") {
-                  console.error("[Chat API] Stream error:", JSON.stringify(chunk))
-                }
-              }
+        const { readable, writable } = new TransformStream()
+        const writer = writable.getWriter()
 
-              if (isFullChapterRequest && fullResponse) {
-                await prisma.chapter.updateMany({
-                  where: { projectId, chapterNumber },
-                  data: { content: fullResponse, status: "COMPLETE" },
-                })
-              }
-
-              if (fullResponse) {
-                await prisma.message.create({
-                  data: { projectId, chapterNumber, role: "assistant", content: fullResponse },
-                })
-              }
-
-              controller.enqueue(
-                encoder.encode(
-                  JSON.stringify({ type: "done", messageId: "stream-complete" }) + "\n"
+        ;(async () => {
+          try {
+            for await (const chunk of stream.fullStream) {
+              if (chunk.type === "text-delta" && chunk.textDelta) {
+                fullResponse += chunk.textDelta
+                await writer.write(
+                  encoder.encode(JSON.stringify({ type: "text", content: chunk.textDelta }) + "\n")
                 )
-              )
-              controller.close()
-            } catch (error) {
-              console.error("[Chat API] Stream error:", error)
-              controller.enqueue(
-                encoder.encode(
-                  JSON.stringify({ type: "error", content: "Failed to generate response" }) + "\n"
-                )
-              )
-              controller.close()
+              } else if (chunk.type === "error") {
+                console.error("[Chat API] Stream error chunk:", JSON.stringify(chunk))
+              }
             }
-          },
-        })
 
-        return new Response(responseStream, {
+            if (isFullChapterRequest && fullResponse) {
+              await prisma.chapter.updateMany({
+                where: { projectId, chapterNumber },
+                data: { content: fullResponse, status: "COMPLETE" },
+              })
+            }
+
+            if (fullResponse) {
+              await prisma.message.create({
+                data: { projectId, chapterNumber, role: "assistant", content: fullResponse },
+              })
+            }
+
+            await writer.write(
+              encoder.encode(JSON.stringify({ type: "done", messageId: "stream-complete" }) + "\n")
+            )
+          } catch (error) {
+            console.error("[Chat API] Stream processing error:", error)
+            const errorMessage =
+              error instanceof Error ? error.message : "Failed to generate response"
+            try {
+              await writer.write(
+                encoder.encode(
+                  JSON.stringify({ type: "error", content: errorMessage }) + "\n"
+                )
+              )
+            } catch {
+              // Writer may already be closed
+            }
+          } finally {
+            try {
+              await writer.close()
+            } catch {
+              // Already closed
+            }
+          }
+        })()
+
+        return new Response(readable, {
           headers: {
             "Content-Type": "text/event-stream",
-            "Cache-Control": "no-cache",
+            "Cache-Control": "no-cache, no-store, must-revalidate",
             "X-Accel-Buffering": "no",
           },
         })
       }
     }
 
-    // Fallback: agent chain without streaming
+    if (!isAIConfigured()) {
+      const errorMsg = getAIErrorMessage()
+      return NextResponse.json(
+        { error: errorMsg || "AI is not configured. Please add OPENROUTER_API_KEY in your Vercel project settings." },
+        { status: 503 }
+      )
+    }
+
     const fallbackPrompt = chapterNumber === 4 && uploadDataText
       ? `${prompt}${uploadDataText}`
       : prompt
@@ -195,8 +213,10 @@ Analyze, interpret, and discuss the above uploaded data in your response. Refere
     return NextResponse.json({ success: true, content: agentResponse })
   } catch (error) {
     console.error("[Chat API] Fatal error:", error)
+    const message =
+      error instanceof Error ? error.message : "Failed to process message"
     return NextResponse.json(
-      { error: "Failed to process message" },
+      { error: message },
       { status: 500 }
     )
   }

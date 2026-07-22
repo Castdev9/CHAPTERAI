@@ -1,10 +1,11 @@
 import { prisma } from "@/lib/prisma"
-import { getChapterModel, createStreamResponse } from "@/lib/ai"
+import { getChapterModel, createStreamResponse, isAIConfigured, getAIErrorMessage } from "@/lib/ai"
 import { getAgentForChapter } from "@/agents"
 import type { AgentContext } from "@/agents/types"
 import { fetchAndParseProjectUploads, formatUploadsForPrompt } from "@/lib/file-parser"
 
 export const runtime = "nodejs"
+export const maxDuration = 120
 
 export async function POST(request: Request) {
   try {
@@ -12,6 +13,13 @@ export async function POST(request: Request) {
     const { projectId, chapterNumber } = body as {
       projectId: string
       chapterNumber: number
+    }
+
+    if (!projectId || !chapterNumber) {
+      return new Response(
+        JSON.stringify({ type: "error", content: "Missing required fields: projectId, chapterNumber" }),
+        { status: 400, headers: { "Content-Type": "application/json" } }
+      )
     }
 
     const project = await prisma.project.findUnique({
@@ -48,7 +56,6 @@ export async function POST(request: Request) {
       const agent = getAgentForChapter(chapterNumber)
       const system = agent.systemPrompt(agentContext)
 
-      // For Chapter 4 (Analysis), fetch and parse uploaded research data files
       let uploadDataText = ""
       if (chapterNumber === 4) {
         const uploads = await fetchAndParseProjectUploads(projectId)
@@ -80,87 +87,109 @@ ${chapterNumber === 4 ? "\nIMPORTANT: Use the uploaded research data above to an
       })
 
       if (stream) {
-        let fullContent = ""
         const encoder = new TextEncoder()
+        let fullContent = ""
 
-        const responseStream = new ReadableStream({
-          async start(controller) {
-            try {
-              for await (const chunk of stream.fullStream) {
-                if (chunk.type === "text-delta" && chunk.textDelta) {
-                  fullContent += chunk.textDelta
-                  controller.enqueue(
-                    encoder.encode(
-                      JSON.stringify({ type: "text", content: chunk.textDelta }) + "\n"
-                    )
+        const { readable, writable } = new TransformStream()
+        const writer = writable.getWriter()
+
+        ;(async () => {
+          try {
+            for await (const chunk of stream.fullStream) {
+              if (chunk.type === "text-delta" && chunk.textDelta) {
+                fullContent += chunk.textDelta
+                await writer.write(
+                  encoder.encode(
+                    JSON.stringify({ type: "text", content: chunk.textDelta }) + "\n"
                   )
-                } else if (chunk.type === "error") {
-                  console.error("[Generate Chapter] Stream error:", JSON.stringify(chunk))
-                }
-              }
-
-              if (fullContent) {
-                await prisma.chapter.updateMany({
-                  where: { projectId, chapterNumber },
-                  data: { content: fullContent, status: "COMPLETE" },
-                })
-
-                await prisma.message.create({
-                  data: {
-                    projectId,
-                    chapterNumber,
-                    role: "user",
-                    content: `Generate complete Chapter ${chapterNumber}`,
-                  },
-                })
-
-                await prisma.message.create({
-                  data: {
-                    projectId,
-                    chapterNumber,
-                    role: "assistant",
-                    content: fullContent,
-                  },
-                })
-              }
-
-              controller.enqueue(
-                encoder.encode(
-                  JSON.stringify({
-                    type: "done",
-                    chapterNumber,
-                    contentLength: fullContent.length,
-                  }) + "\n"
                 )
-              )
-              controller.close()
-            } catch (error) {
-              console.error("[Generate Chapter] Stream error:", error)
+              } else if (chunk.type === "error") {
+                console.error("[Generate Chapter] Stream error:", JSON.stringify(chunk))
+              }
+            }
+
+            if (fullContent) {
               await prisma.chapter.updateMany({
                 where: { projectId, chapterNumber },
-                data: { status: "DRAFT" },
+                data: { content: fullContent, status: "COMPLETE" },
               })
-              controller.enqueue(
+
+              await prisma.message.create({
+                data: {
+                  projectId,
+                  chapterNumber,
+                  role: "user",
+                  content: `Generate complete Chapter ${chapterNumber}`,
+                },
+              })
+
+              await prisma.message.create({
+                data: {
+                  projectId,
+                  chapterNumber,
+                  role: "assistant",
+                  content: fullContent,
+                },
+              })
+            }
+
+            await writer.write(
+              encoder.encode(
+                JSON.stringify({
+                  type: "done",
+                  chapterNumber,
+                  contentLength: fullContent.length,
+                }) + "\n"
+              )
+            )
+          } catch (error) {
+            console.error("[Generate Chapter] Stream processing error:", error)
+            await prisma.chapter.updateMany({
+              where: { projectId, chapterNumber },
+              data: { status: "DRAFT" },
+            })
+            const errorMessage =
+              error instanceof Error ? error.message : "Failed to generate chapter"
+            try {
+              await writer.write(
                 encoder.encode(
-                  JSON.stringify({ type: "error", content: "Failed to generate chapter" }) + "\n"
+                  JSON.stringify({ type: "error", content: errorMessage }) + "\n"
                 )
               )
-              controller.close()
+            } catch {
+              // Writer may already be closed
             }
-          },
-        })
+          } finally {
+            try {
+              await writer.close()
+            } catch {
+              // Already closed
+            }
+          }
+        })()
 
-        return new Response(responseStream, {
+        return new Response(readable, {
           headers: {
             "Content-Type": "text/event-stream",
-            "Cache-Control": "no-cache",
+            "Cache-Control": "no-cache, no-store, must-revalidate",
             "X-Accel-Buffering": "no",
           },
         })
       }
     }
 
-    // Fallback: reset status
+    if (!isAIConfigured()) {
+      const errorMsg = getAIErrorMessage()
+      await prisma.chapter.updateMany({
+        where: { projectId, chapterNumber },
+        data: { status: "DRAFT" },
+      })
+      return new Response(
+        JSON.stringify({ type: "error", content: errorMsg || "No AI model available. Please add OPENROUTER_API_KEY in Vercel." }),
+        { status: 503, headers: { "Content-Type": "application/json" } }
+      )
+    }
+
     await prisma.chapter.updateMany({
       where: { projectId, chapterNumber },
       data: { status: "DRAFT" },
@@ -172,8 +201,10 @@ ${chapterNumber === 4 ? "\nIMPORTANT: Use the uploaded research data above to an
     )
   } catch (error) {
     console.error("[Generate Chapter] Fatal error:", error)
+    const message =
+      error instanceof Error ? error.message : "Failed to generate chapter"
     return new Response(
-      JSON.stringify({ type: "error", content: "Failed to generate chapter" }),
+      JSON.stringify({ type: "error", content: message }),
       { status: 500, headers: { "Content-Type": "application/json" } }
     )
   }

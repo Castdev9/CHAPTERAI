@@ -1,0 +1,28 @@
+{
+  "functions": {
+    "src/app/api/chat/route.ts": {
+      "maxDuration": 120
+    },
+    "src/app/api/generate-chapter/route.ts": {
+      "maxDuration": 120
+    },
+    "src/app/api/analysis/route.ts": {
+      "maxDuration": 120
+    },
+    "src/app/api/analysis/quantitative/route.ts": {
+      "maxDuration": 120
+    },
+    "src/app/api/analysis/qualitative/route.ts": {
+      "maxDuration": 120
+    }
+  },
+  "headers": [
+    {
+      "source": "/api/(.*)",
+      "headers": [
+        { "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" },
+        { "key": "X-Accel-Buffering", "value": "no" }
+      ]
+    }
+  ]
+}

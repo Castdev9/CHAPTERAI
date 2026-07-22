@@ -121,7 +121,16 @@ export function ChatArea({ projectId, chapterNumber }: ChatAreaProps) {
         signal: abortController.signal,
       })
 
-      if (!res.ok) throw new Error("Failed to send message")
+      if (!res.ok) {
+        let errorMsg = "Failed to send message"
+        try {
+          const errData = await res.json()
+          if (errData.error) errorMsg = errData.error
+        } catch {
+          // Could not parse error response
+        }
+        throw new Error(errorMsg)
+      }
 
       const contentType = res.headers.get("Content-Type") || ""
 
