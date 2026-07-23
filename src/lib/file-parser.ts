@@ -2,7 +2,6 @@ import { createSupabaseServerClient } from "@/lib/supabase/server"
 import { prisma } from "@/lib/prisma"
 import * as XLSX from "xlsx"
 import mammoth from "mammoth"
-import { PDFParse } from "pdf-parse"
 
 const MAX_CHARS_PER_FILE = 15000
 
@@ -87,6 +86,26 @@ function parseText(buffer: Buffer): string {
 }
 
 async function parsePDF(buffer: Buffer): Promise<string> {
+  if (typeof globalThis.DOMMatrix === "undefined") {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ;(globalThis as any).DOMMatrix = class DOMMatrix {
+      constructor() {}
+      multiply() { return this }
+      translate() { return this }
+      scale() { return this }
+      rotate() { return this }
+      toString() { return "" }
+    }
+  }
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  if (typeof globalThis.ImageData === "undefined") {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ;(globalThis as any).ImageData = class ImageData {
+      constructor(public data: Uint8ClampedArray, public width: number, public height: number) {}
+    }
+  }
+
+  const { PDFParse } = await import("pdf-parse")
   const parser = new PDFParse({ data: new Uint8Array(buffer) })
   try {
     const result = await parser.getText()
