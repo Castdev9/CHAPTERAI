@@ -17,6 +17,13 @@ function extractStoragePath(fileUrl: string): string | null {
 }
 
 async function downloadFileFromStorage(fileUrl: string): Promise<Buffer | null> {
+  if (fileUrl.startsWith("data:")) {
+    const base64Index = fileUrl.indexOf("base64,")
+    if (base64Index !== -1) {
+      return Buffer.from(fileUrl.substring(base64Index + 7), "base64")
+    }
+  }
+
   const storagePath = extractStoragePath(fileUrl)
   if (!storagePath) return null
 

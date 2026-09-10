@@ -7,7 +7,8 @@ export async function GET() {
       orderBy: { updatedAt: "desc" },
     })
     return NextResponse.json(projects)
-  } catch {
+  } catch (err) {
+    console.error("GET /api/projects error:", err)
     return NextResponse.json([], { status: 200 })
   }
 }

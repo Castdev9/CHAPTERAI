@@ -21,23 +21,32 @@ export async function POST(request: Request) {
     const filename = `${Date.now()}-${file.name.replace(/[^a-zA-Z0-9.-]/g, "_")}`
     const storagePath = `${projectId}/${filename}`
 
-    const { error: uploadError } = await supabase.storage
-      .from("uploads")
-      .upload(storagePath, file, {
-        contentType: file.type,
-        upsert: false,
-      })
+    let fileUrl = ""
+    try {
+      if (process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY) {
+        const { error: uploadError } = await supabase.storage
+          .from("uploads")
+          .upload(storagePath, file, {
+            contentType: file.type,
+            upsert: false,
+          })
 
-    if (uploadError) {
-      console.error("Supabase upload error:", uploadError)
-      return NextResponse.json({ error: "Failed to upload file" }, { status: 500 })
+        if (!uploadError) {
+          const { data: urlData } = supabase.storage
+            .from("uploads")
+            .getPublicUrl(storagePath)
+          fileUrl = urlData.publicUrl
+        }
+      }
+    } catch {
+      // Supabase storage unavailable - fall through to data URL
     }
 
-    const { data: urlData } = supabase.storage
-      .from("uploads")
-      .getPublicUrl(storagePath)
-
-    const fileUrl = urlData.publicUrl
+    if (!fileUrl) {
+      const arrayBuffer = await file.arrayBuffer()
+      const base64 = Buffer.from(arrayBuffer).toString("base64")
+      fileUrl = `data:${file.type || "application/octet-stream"};base64,${base64}`
+    }
 
     const upload = await prisma.upload.create({
       data: {

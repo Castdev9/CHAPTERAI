@@ -1,0 +1,6 @@
+{
+  "name": "ChapterAI",
+  "description": "AI-powered academic research assistant to generate, organize, analyze, and refine research projects from Chapter 1 to Chapter 5.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
