@@ -142,8 +142,7 @@ export default function DashboardPage() {
                         onClick={(e) => {
                           e.preventDefault()
                           e.stopPropagation()
-                          if (confirm("Delete this project and all its data?"))
-                            deleteProject.mutate(project.id)
+                          deleteProject.mutate(project.id)
                         }}
                         className="flex h-8 w-8 items-center justify-center rounded-lg hover:bg-destructive/10 hover:text-destructive transition-colors"
                         title="Delete project"

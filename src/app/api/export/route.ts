@@ -36,7 +36,6 @@ export async function GET(request: Request) {
       where: { id: projectId },
       include: {
         chapters: {
-          where: { status: "COMPLETE" },
           orderBy: { chapterNumber: "asc" },
         },
       },
@@ -46,19 +45,38 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "Project not found" }, { status: 404 })
     }
 
-    if (project.chapters.length === 0) {
-      return NextResponse.json({ error: "No completed chapters to export" }, { status: 400 })
+    // Prefer complete chapters with content, otherwise any chapter with content
+    let exportableChapters = (project.chapters as Array<{ status: string; content?: string | null }>).filter(
+      (c) => c.status === "COMPLETE" && c.content?.trim()
+    )
+    if (exportableChapters.length === 0) {
+      exportableChapters = (project.chapters as Array<{ status: string; content?: string | null }>).filter(
+        (c) => c.content?.trim()
+      )
+    }
+
+    if (exportableChapters.length === 0) {
+      return NextResponse.json({ error: "No chapter content available to export" }, { status: 400 })
+    }
+
+    const projectToExport = {
+      ...project,
+      chapters: exportableChapters,
     }
 
     if (format === "docx") {
-      return await exportDocx(project)
+      return await exportDocx(projectToExport)
     }
 
     if (format === "pdf") {
-      return await exportPdf(project)
+      return await exportPdf(projectToExport)
     }
 
-    return await exportHtml(project)
+    if (format === "md" || format === "markdown" || format === "txt") {
+      return exportMarkdown(projectToExport)
+    }
+
+    return await exportHtml(projectToExport)
   } catch (error) {
     console.error("Export error:", error)
     return NextResponse.json({ error: "Export failed" }, { status: 500 })
@@ -395,6 +413,30 @@ async function exportHtml(project: ProjectData) {
     headers: {
       "Content-Type": "text/html; charset=utf-8",
       "Content-Disposition": `attachment; filename="${sanitize(project.topic)}.html"`,
+      "Content-Length": buffer.length.toString(),
+    },
+  })
+}
+
+function exportMarkdown(project: ProjectData) {
+  let md = `# ${project.topic}\n\n`
+  md += `**Academic Level:** ${project.academicLevel}\n\n`
+  md += `**Department:** ${project.department}\n\n`
+  md += `**Institution:** ${project.institution}, ${project.country}\n\n`
+  md += `**Citation Style:** ${project.citationStyle}\n\n`
+  md += `---\n\n`
+
+  for (const chapter of project.chapters) {
+    md += `# Chapter ${chapter.chapterNumber}: ${chapter.title}\n\n`
+    md += `${chapter.content.trim()}\n\n`
+    md += `---\n\n`
+  }
+
+  const buffer = Buffer.from(md, "utf-8")
+  return new Response(new Uint8Array(buffer), {
+    headers: {
+      "Content-Type": "text/markdown; charset=utf-8",
+      "Content-Disposition": `attachment; filename="${sanitize(project.topic)}.md"`,
       "Content-Length": buffer.length.toString(),
     },
   })

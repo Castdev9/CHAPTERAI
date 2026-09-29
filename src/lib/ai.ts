@@ -66,7 +66,8 @@ export function getAIErrorMessage(): string {
 export function getChatModel(): any {
   initProvider()
   if (activeProvider === "gemini" && cachedGeminiClient) {
-    return cachedGeminiClient("gemini-2.5-flash")
+    const modelName = process.env.GEMINI_MODEL || "gemini-3.1-flash-lite"
+    return cachedGeminiClient(modelName)
   }
   if (activeProvider === "openrouter" && cachedOpenAIClient) {
     return cachedOpenAIClient("openai/gpt-4o-mini")
@@ -80,7 +81,8 @@ export function getChatModel(): any {
 export function getChapterModel(): any {
   initProvider()
   if (activeProvider === "gemini" && cachedGeminiClient) {
-    return cachedGeminiClient("gemini-2.5-flash")
+    const modelName = process.env.GEMINI_MODEL || "gemini-3.1-flash-lite"
+    return cachedGeminiClient(modelName)
   }
   if (activeProvider === "openrouter" && cachedOpenAIClient) {
     return cachedOpenAIClient("openai/gpt-4o")

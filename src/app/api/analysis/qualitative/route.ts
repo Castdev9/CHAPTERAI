@@ -107,17 +107,26 @@ ${text}`,
 
       if (stream) {
         let fullResponse = ""
-        for await (const chunk of stream.fullStream) {
-          if (chunk.type === "text-delta" && chunk.textDelta) {
-            fullResponse += chunk.textDelta
+        try {
+          for await (const chunk of stream.fullStream) {
+            if (chunk.type === "text-delta" && chunk.textDelta) {
+              fullResponse += chunk.textDelta
+            } else if (chunk.type === "error") {
+              console.warn("[Qualitative] Stream error chunk:", (chunk as any).error)
+              break
+            }
           }
+        } catch (streamErr) {
+          console.warn("[Qualitative] Stream read error:", streamErr)
         }
 
-        return NextResponse.json({
-          type,
-          success: true,
-          content: fullResponse,
-        })
+        if (fullResponse && fullResponse.trim().length > 0) {
+          return NextResponse.json({
+            type,
+            success: true,
+            content: fullResponse,
+          })
+        }
       }
     }
 

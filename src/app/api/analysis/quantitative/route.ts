@@ -8,6 +8,8 @@ import {
   calcIndependentTTest,
   calcOneWayANOVA,
   calcChiSquare,
+  calcCorrelationMatrix,
+  generateAcademicChapter4Section,
   parseNumericData,
   parseGroupedData,
   parseContingencyTable,
@@ -16,10 +18,10 @@ import {
 export async function POST(request: Request) {
   try {
     const body = await request.json()
-    const { type, data, columns } = body as {
+    const { type, data, columns = {} } = body as {
       type: string
       data: Record<string, string>[]
-      columns: {
+      columns?: {
         value?: string
         group?: string
         x?: string
@@ -148,11 +150,26 @@ export async function POST(request: Request) {
         break
       }
 
+      case "matrix": {
+        const matrixCols = columns.groups || (columns.x && columns.y ? [columns.x, columns.y] : [])
+        if (matrixCols.length < 2) {
+          return NextResponse.json({ error: "At least two columns required for correlation matrix" }, { status: 400 })
+        }
+        const matrixResult = calcCorrelationMatrix(data, matrixCols)
+        result = {
+          type: "matrix",
+          ...matrixResult,
+          n: data.length,
+        }
+        break
+      }
+
       default:
         return NextResponse.json({ error: `Unknown analysis type: ${type}` }, { status: 400 })
     }
 
-    return NextResponse.json(result)
+    const academicSection = generateAcademicChapter4Section(result)
+    return NextResponse.json({ ...result, academicSection })
   } catch (error) {
     console.error("Quantitative analysis error:", error)
     return NextResponse.json(

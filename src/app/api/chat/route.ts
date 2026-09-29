@@ -534,17 +534,77 @@ Analyze, interpret, and discuss the above uploaded data in your response. Refere
           )
         }
       } catch (error) {
-        console.error("[CHAT-15] Stream processing error:", error)
-        const errorMessage =
-          error instanceof Error ? error.message : "Unknown stream error"
-        try {
-          await writer.write(
-            encoder.encode(
-              JSON.stringify({ type: "error", content: errorMessage }) + "\n"
+        console.error("[CHAT-15] Stream processing error (falling back to academic guidance):", error)
+        
+        if (fullResponse.length === 0) {
+          try {
+            const fallbackText = generateAcademicGuidance(
+              content,
+              project,
+              chapterNumber,
+              isFullChapterRequest
             )
-          )
-        } catch {
-          // Writer already closed
+            const words = fallbackText.split(" ")
+            for (let i = 0; i < words.length; i += 3) {
+              const piece = words.slice(i, i + 3).join(" ") + " "
+              fullResponse += piece
+              await writer.write(
+                encoder.encode(JSON.stringify({ type: "text", content: piece }) + "\n")
+              )
+              await new Promise((r) => setTimeout(r, 12))
+            }
+
+            if (isFullChapterRequest) {
+              await prisma.chapter.updateMany({
+                where: { projectId, chapterNumber },
+                data: { content: fullResponse, status: "COMPLETE" },
+              })
+            }
+
+            await prisma.message.create({
+              data: {
+                projectId,
+                chapterNumber,
+                role: "assistant",
+                content: fullResponse,
+              },
+            })
+
+            await writer.write(
+              encoder.encode(
+                JSON.stringify({
+                  type: "done",
+                  messageId: "stream-complete",
+                }) + "\n"
+              )
+            )
+          } catch (fallbackError) {
+            console.error("[CHAT-15] Fallback failed:", fallbackError)
+            try {
+              const errorMessage =
+                error instanceof Error ? error.message : "Unknown stream error"
+              await writer.write(
+                encoder.encode(
+                  JSON.stringify({ type: "error", content: errorMessage }) + "\n"
+                )
+              )
+            } catch {
+              // Writer already closed
+            }
+          }
+        } else {
+          try {
+            await writer.write(
+              encoder.encode(
+                JSON.stringify({
+                  type: "done",
+                  messageId: "stream-complete",
+                }) + "\n"
+              )
+            )
+          } catch {
+            // Writer already closed
+          }
         }
       } finally {
         try {

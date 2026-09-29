@@ -30,6 +30,7 @@ import { ChapterNavigation } from "@/components/chapters/chapter-navigation"
 import { ResearchPanel } from "@/components/research/research-panel"
 import { AnalysisSelector } from "@/components/analysis/analysis-selector"
 import { ChapterView } from "@/components/chapters/chapter-view"
+import { ManuscriptView } from "@/components/manuscript/manuscript-view"
 import { ProjectSettingsModal } from "@/components/research/project-settings-modal"
 import { ErrorBoundary } from "@/components/ui/error-boundary"
 import { ChapterNavSkeleton, ResearchPanelSkeleton } from "@/components/ui/loading-skeleton"
@@ -48,14 +49,14 @@ const chapters = [
   { number: 7, title: "Appendices", icon: FolderOpen },
 ]
 
-async function triggerExport(projectId: string, format: "docx" | "html" | "pdf") {
+async function triggerExport(projectId: string, format: "docx" | "html" | "pdf" | "md") {
   const res = await fetch(`/api/export?projectId=${projectId}&format=${format}`)
   if (!res.ok) {
     const err = await res.json().catch(() => ({ error: "Export failed" }))
     throw new Error(err.error || "Export failed")
   }
   const blob = await res.blob()
-  const ext = format === "docx" ? "docx" : format === "pdf" ? "pdf" : "html"
+  const ext = format === "docx" ? "docx" : format === "pdf" ? "pdf" : format === "html" ? "html" : "md"
   const url = URL.createObjectURL(blob)
   const a = document.createElement("a")
   a.href = url
@@ -69,7 +70,7 @@ async function triggerExport(projectId: string, format: "docx" | "html" | "pdf")
 export default function ResearchWorkspace() {
   const params = useParams()
   const [activeChapter, setActiveChapter] = useState(1)
-  const [view, setView] = useState<"chat" | "generated">("chat")
+  const [view, setView] = useState<"chat" | "generated" | "manuscript">("chat")
   const [showPanel, setShowPanel] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
   const [exportOpen, setExportOpen] = useState(false)
@@ -92,10 +93,11 @@ export default function ResearchWorkspace() {
     chapterStatuses[ch.chapterNumber] = ch.status
   })
 
-  const hasCompleteChapter = project?.chapters?.some((c) => c.status === "COMPLETE")
+  const hasCompleteChapter = project?.chapters?.some((c) => c.status === "COMPLETE" || Boolean(c.content?.trim()))
 
   useEffect(() => {
-    setView("chat")
+    // If user changes active chapter and they were not in manuscript mode, go to chat
+    setView((current) => (current === "manuscript" ? "manuscript" : "chat"))
   }, [activeChapter])
 
   useEffect(() => {
@@ -108,11 +110,7 @@ export default function ResearchWorkspace() {
     return () => document.removeEventListener("mousedown", handleClickOutside)
   }, [])
 
-  const toggleView = useCallback(() => {
-    setView((v) => (v === "chat" ? "generated" : "chat"))
-  }, [])
-
-  const handleExport = async (format: "docx" | "html" | "pdf") => {
+  const handleExport = async (format: "docx" | "html" | "pdf" | "md") => {
     setExporting(format)
     setExportOpen(false)
     try {
@@ -147,16 +145,46 @@ export default function ResearchWorkspace() {
           </span>
         </div>
         <div className="flex items-center gap-2">
-          <button
-            onClick={toggleView}
-            className="inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-sm font-medium hover:bg-muted transition-colors"
-          >
-            {view === "chat" ? (
-              <><Eye className="h-4 w-4" />View</>
-            ) : (
-              <><MessageSquare className="h-4 w-4" />Chat</>
-            )}
-          </button>
+          {/* 3-Way Mode Switcher: Chat | Chapter View | Full Manuscript */}
+          <div className="flex items-center rounded-lg border bg-muted/30 p-0.5">
+            <button
+              onClick={() => setView("chat")}
+              className={cn(
+                "inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-colors",
+                view === "chat"
+                  ? "bg-background text-foreground shadow-xs font-semibold"
+                  : "text-muted-foreground hover:text-foreground"
+              )}
+            >
+              <MessageSquare className="h-3.5 w-3.5" />
+              Chat
+            </button>
+            <button
+              onClick={() => setView("generated")}
+              className={cn(
+                "inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-colors",
+                view === "generated"
+                  ? "bg-background text-foreground shadow-xs font-semibold"
+                  : "text-muted-foreground hover:text-foreground"
+              )}
+            >
+              <Eye className="h-3.5 w-3.5" />
+              Chapter View
+            </button>
+            <button
+              onClick={() => setView("manuscript")}
+              className={cn(
+                "inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-colors",
+                view === "manuscript"
+                  ? "bg-primary text-primary-foreground shadow-xs font-semibold"
+                  : "text-muted-foreground hover:text-foreground"
+              )}
+            >
+              <BookOpen className="h-3.5 w-3.5" />
+              Manuscript (Ch 1 - 5)
+            </button>
+          </div>
+
           <button
             onClick={() => setShowPanel((p) => !p)}
             className="inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-sm font-medium hover:bg-muted transition-colors xl:hidden"
@@ -167,7 +195,15 @@ export default function ResearchWorkspace() {
               <PanelRightOpen className="h-4 w-4" />
             )}
           </button>
-          <button className="inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-sm font-medium hover:bg-muted transition-colors">
+          <button
+            onClick={() => {
+              if (typeof window !== "undefined") {
+                navigator.clipboard.writeText(window.location.href)
+                toast.success("Project URL copied to clipboard!")
+              }
+            }}
+            className="inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-sm font-medium hover:bg-muted transition-colors"
+          >
             <Share2 className="h-4 w-4" />Share
           </button>
           <div className="relative" ref={exportRef}>
@@ -183,27 +219,34 @@ export default function ResearchWorkspace() {
               )}
             </button>
             {exportOpen && (
-              <div className="absolute right-0 top-full mt-1 w-48 rounded-lg border bg-background shadow-lg z-50 py-1">
-                <button
-                  onClick={() => handleExport("pdf")}
-                  className="flex w-full items-center gap-3 px-4 py-2 text-sm hover:bg-muted transition-colors"
-                >
-                  <FileIcon className="h-4 w-4" />
-                  Export as PDF
-                </button>
+              <div className="absolute right-0 top-full mt-1 w-52 rounded-lg border bg-background shadow-lg z-50 py-1">
                 <button
                   onClick={() => handleExport("docx")}
                   className="flex w-full items-center gap-3 px-4 py-2 text-sm hover:bg-muted transition-colors"
                 >
-                  <FileDown className="h-4 w-4" />
-                  Export as DOCX
+                  <FileDown className="h-4 w-4 text-blue-600" />
+                  Export as DOCX (Word)
+                </button>
+                <button
+                  onClick={() => handleExport("pdf")}
+                  className="flex w-full items-center gap-3 px-4 py-2 text-sm hover:bg-muted transition-colors"
+                >
+                  <FileIcon className="h-4 w-4 text-red-600" />
+                  Export as PDF
                 </button>
                 <button
                   onClick={() => handleExport("html")}
                   className="flex w-full items-center gap-3 px-4 py-2 text-sm hover:bg-muted transition-colors"
                 >
-                  <FileType className="h-4 w-4" />
+                  <FileType className="h-4 w-4 text-amber-600" />
                   Export as HTML
+                </button>
+                <button
+                  onClick={() => handleExport("md")}
+                  className="flex w-full items-center gap-3 px-4 py-2 text-sm hover:bg-muted transition-colors"
+                >
+                  <FileText className="h-4 w-4 text-emerald-600" />
+                  Export as Markdown (.md)
                 </button>
               </div>
             )}
@@ -216,14 +259,27 @@ export default function ResearchWorkspace() {
           <ChapterNavigation
             chapters={chapters}
             activeChapter={activeChapter}
-            onSelect={setActiveChapter}
+            onSelect={(num) => {
+              setActiveChapter(num)
+              setView("chat")
+            }}
             chapterStatuses={chapterStatuses}
+            isManuscriptView={view === "manuscript"}
+            onSelectManuscript={() => setView("manuscript")}
           />
         </ErrorBoundary>
 
         <ErrorBoundary>
           <div className="flex flex-1 flex-col overflow-hidden min-w-0">
-            {activeChapter === 4 && view === "chat" ? (
+            {view === "manuscript" ? (
+              <ManuscriptView
+                projectId={projectId}
+                onSelectChapter={(num) => {
+                  setActiveChapter(num)
+                  setView("chat")
+                }}
+              />
+            ) : activeChapter === 4 && view === "chat" ? (
               <AnalysisSelector projectId={projectId} />
             ) : view === "generated" ? (
               <div className="flex-1 overflow-y-auto p-6">

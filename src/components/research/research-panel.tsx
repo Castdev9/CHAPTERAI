@@ -7,7 +7,7 @@ import type { Project, Chapter } from "@/types"
 
 interface ResearchPanelProps {
   projectId: string
-  onExport?: (format: "docx" | "html" | "pdf") => void
+  onExport?: (format: "docx" | "html" | "pdf" | "md") => void
   exporting?: string | null
   onOpenSettings?: () => void
 }
@@ -24,7 +24,7 @@ export function ResearchPanel({ projectId, onExport, exporting, onOpenSettings }
   })
 
   const chapters: Chapter[] = project?.chapters || []
-  const completedChapters = chapters.filter((c) => c.status === "COMPLETE").length
+  const hasExportableContent = chapters.some((c) => Boolean(c.content?.trim()))
   const generatingChapters = chapters.filter((c) => c.status === "GENERATING").length
 
   const methodologyLabel = project?.methodology?.replace(/_/g, " ") || "Not set"
@@ -156,40 +156,52 @@ export function ResearchPanel({ projectId, onExport, exporting, onOpenSettings }
           </h3>
           <div className="space-y-2">
             <button
+              onClick={() => onExport?.("docx")}
+              disabled={!hasExportableContent || exporting !== null}
+              className="flex w-full items-center gap-2 rounded-lg border px-3 py-2 text-sm hover:bg-muted transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {exporting === "docx" ? (
+                <Loader2 className="h-4 w-4 animate-spin text-blue-600" />
+              ) : (
+                <FileDown className="h-4 w-4 text-blue-600" />
+              )}
+              Export as Word (.docx)
+            </button>
+            <button
               onClick={() => onExport?.("pdf")}
-              disabled={completedChapters === 0 || exporting !== null}
+              disabled={!hasExportableContent || exporting !== null}
               className="flex w-full items-center gap-2 rounded-lg border px-3 py-2 text-sm hover:bg-muted transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {exporting === "pdf" ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
+                <Loader2 className="h-4 w-4 animate-spin text-red-600" />
               ) : (
-                <FileIcon className="h-4 w-4" />
+                <FileIcon className="h-4 w-4 text-red-600" />
               )}
               Export as PDF
             </button>
             <button
-              onClick={() => onExport?.("docx")}
-              disabled={completedChapters === 0 || exporting !== null}
-              className="flex w-full items-center gap-2 rounded-lg border px-3 py-2 text-sm hover:bg-muted transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {exporting === "docx" ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <FileDown className="h-4 w-4" />
-              )}
-              Export as DOCX
-            </button>
-            <button
               onClick={() => onExport?.("html")}
-              disabled={completedChapters === 0 || exporting !== null}
+              disabled={!hasExportableContent || exporting !== null}
               className="flex w-full items-center gap-2 rounded-lg border px-3 py-2 text-sm hover:bg-muted transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {exporting === "html" ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
+                <Loader2 className="h-4 w-4 animate-spin text-amber-600" />
               ) : (
-                <FileType className="h-4 w-4" />
+                <FileType className="h-4 w-4 text-amber-600" />
               )}
               Export as HTML
+            </button>
+            <button
+              onClick={() => onExport?.("md")}
+              disabled={!hasExportableContent || exporting !== null}
+              className="flex w-full items-center gap-2 rounded-lg border px-3 py-2 text-sm hover:bg-muted transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {exporting === "md" ? (
+                <Loader2 className="h-4 w-4 animate-spin text-emerald-600" />
+              ) : (
+                <BookOpen className="h-4 w-4 text-emerald-600" />
+              )}
+              Export as Markdown (.md)
             </button>
           </div>
         </div>

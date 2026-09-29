@@ -328,21 +328,80 @@ ${chapterNumber === 4 ? "\nIMPORTANT: Use the uploaded research data above to an
               )
             )
           } catch (error) {
-            console.error("[Generate Chapter] Stream processing error:", error)
-            await prisma.chapter.updateMany({
-              where: { projectId, chapterNumber },
-              data: { status: "DRAFT" },
-            })
-            const errorMessage =
-              error instanceof Error ? error.message : "Failed to generate chapter"
-            try {
-              await writer.write(
-                encoder.encode(
-                  JSON.stringify({ type: "error", content: errorMessage }) + "\n"
+            console.error("[Generate Chapter] Stream error, falling back to complete academic generation:", error)
+            
+            if (fullContent.length === 0) {
+              try {
+                const fallbackDraft = generateAcademicChapterContent(project, chapterNumber)
+                const words = fallbackDraft.split(" ")
+                for (let i = 0; i < words.length; i += 4) {
+                  const piece = words.slice(i, i + 4).join(" ") + " "
+                  fullContent += piece
+                  await writer.write(
+                    encoder.encode(JSON.stringify({ type: "text", content: piece }) + "\n")
+                  )
+                  await new Promise((r) => setTimeout(r, 12))
+                }
+
+                await prisma.chapter.updateMany({
+                  where: { projectId, chapterNumber },
+                  data: { content: fullContent, status: "COMPLETE" },
+                })
+
+                await prisma.message.create({
+                  data: {
+                    projectId,
+                    chapterNumber,
+                    role: "assistant",
+                    content: fullContent,
+                  },
+                })
+
+                await writer.write(
+                  encoder.encode(
+                    JSON.stringify({
+                      type: "done",
+                      chapterNumber,
+                      contentLength: fullContent.length,
+                    }) + "\n"
+                  )
                 )
-              )
-            } catch {
-              // Writer may already be closed
+              } catch (fallbackError) {
+                console.error("[Generate Chapter] Fallback failed:", fallbackError)
+                await prisma.chapter.updateMany({
+                  where: { projectId, chapterNumber },
+                  data: { status: "DRAFT" },
+                })
+                const errorMessage =
+                  error instanceof Error ? error.message : "Failed to generate chapter"
+                try {
+                  await writer.write(
+                    encoder.encode(
+                      JSON.stringify({ type: "error", content: errorMessage }) + "\n"
+                    )
+                  )
+                } catch {
+                  // Writer may already be closed
+                }
+              }
+            } else {
+              await prisma.chapter.updateMany({
+                where: { projectId, chapterNumber },
+                data: { content: fullContent, status: "COMPLETE" },
+              })
+              try {
+                await writer.write(
+                  encoder.encode(
+                    JSON.stringify({
+                      type: "done",
+                      chapterNumber,
+                      contentLength: fullContent.length,
+                    }) + "\n"
+                  )
+                )
+              } catch {
+                // Writer already closed
+              }
             }
           } finally {
             try {

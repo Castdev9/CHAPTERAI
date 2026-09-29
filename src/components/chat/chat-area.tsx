@@ -1,13 +1,16 @@
 "use client"
 
 import { useState, useRef, useEffect, useCallback } from "react"
-import { Send, Bot, User, Sparkles, StopCircle, Loader2, Copy, Check, Pencil, Trash2, RefreshCw, X, CheckCheck } from "lucide-react"
+import { Send, Bot, User, Sparkles, StopCircle, Loader2, Copy, Check, Pencil, Trash2, RefreshCw, X, CheckCheck, Mic } from "lucide-react"
 import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query"
 import { toast } from "sonner"
 import Markdown from "react-markdown"
 import remarkGfm from "remark-gfm"
 import type { Message } from "@/types"
 import { cn } from "@/lib/utils"
+import { useSpeechRecognition } from "@/hooks/use-speech-recognition"
+import { VoiceRecognitionButton } from "@/components/ui/voice-recognition-button"
+import { MicrophonePermissionDialog } from "@/components/ui/microphone-permission-dialog"
 
 interface ChatAreaProps {
   projectId: string
@@ -27,6 +30,29 @@ export function ChatArea({ projectId, chapterNumber }: ChatAreaProps) {
   const editTextareaRef = useRef<HTMLTextAreaElement>(null)
   const queryClient = useQueryClient()
   const [nearBottom, setNearBottom] = useState(true)
+
+  const handleVoiceTranscript = useCallback((text: string, isFinal: boolean) => {
+    if (isFinal) {
+      setInput((prev) => {
+        const trimmed = prev.trim()
+        return trimmed ? `${trimmed} ${text}` : text
+      })
+    }
+  }, [])
+
+  const {
+    isListening,
+    interimTranscript,
+    isSupported,
+    permissionDenied,
+    setPermissionDenied,
+    requestPermission,
+    toggleListening,
+    stopListening,
+    startListening,
+  } = useSpeechRecognition({
+    onTranscript: handleVoiceTranscript,
+  })
 
   const { data: messages = [], isLoading } = useQuery<Message[]>({
     queryKey: ["messages", projectId, chapterNumber],
@@ -190,6 +216,7 @@ export function ChatArea({ projectId, chapterNumber }: ChatAreaProps) {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
+    if (isListening) stopListening()
     if (!input.trim() || isStreaming) return
     handleStreamingSubmit(input.trim())
   }
@@ -459,11 +486,9 @@ export function ChatArea({ projectId, chapterNumber }: ChatAreaProps) {
                   </button>
                 )}
                 <button
-                  onClick={() => {
-                    if (confirm("Delete this message?")) deleteMessage.mutate(msg.id)
-                  }}
+                  onClick={() => deleteMessage.mutate(msg.id)}
                   className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors"
-                  title="Delete"
+                  title="Delete message"
                 >
                   <Trash2 className="h-3 w-3" />
                 </button>
@@ -486,6 +511,24 @@ export function ChatArea({ projectId, chapterNumber }: ChatAreaProps) {
       </div>
 
       <div className="border-t p-4">
+        {isListening && (
+          <div className="flex items-center justify-between bg-red-500/10 border border-red-500/30 px-3 py-1.5 rounded-lg mb-2 text-xs text-red-600 dark:text-red-400">
+            <div className="flex items-center gap-2 truncate mr-2">
+              <span className="h-2 w-2 rounded-full bg-red-500 animate-ping shrink-0" />
+              <span className="font-semibold shrink-0">Listening...</span>
+              <span className="text-muted-foreground truncate">
+                {interimTranscript ? `"${interimTranscript}"` : "Speak into your microphone..."}
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={stopListening}
+              className="text-xs font-semibold underline hover:text-red-700 shrink-0"
+            >
+              Stop
+            </button>
+          </div>
+        )}
         <form onSubmit={handleSubmit} className="flex gap-2 items-end">
           <div className="relative flex-1">
             <textarea
@@ -496,13 +539,19 @@ export function ChatArea({ projectId, chapterNumber }: ChatAreaProps) {
               placeholder={
                 isStreaming
                   ? "Generating response..."
-                  : `Ask about Chapter ${chapterNumber}...`
+                  : `Ask about Chapter ${chapterNumber}... (or click mic to speak)`
               }
               rows={1}
               className="w-full rounded-lg border bg-background px-4 py-2.5 text-sm outline-none focus:border-ring resize-none overflow-hidden"
               disabled={isStreaming}
             />
           </div>
+          <VoiceRecognitionButton
+            isListening={isListening}
+            onToggle={permissionDenied ? () => setPermissionDenied(true) : toggleListening}
+            isSupported={isSupported}
+            permissionDenied={permissionDenied}
+          />
           {isStreaming ? (
             <button
               type="button"
@@ -522,6 +571,20 @@ export function ChatArea({ projectId, chapterNumber }: ChatAreaProps) {
           )}
         </form>
       </div>
+
+      <MicrophonePermissionDialog
+        isOpen={permissionDenied}
+        onClose={() => setPermissionDenied(false)}
+        onRetry={async () => {
+          const granted = await requestPermission()
+          if (granted) {
+            setTimeout(() => {
+              startListening()
+            }, 150)
+          }
+          return granted
+        }}
+      />
     </div>
   )
 }

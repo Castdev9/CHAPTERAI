@@ -229,8 +229,8 @@ export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
                 <button
                   onClick={(e) => {
                     e.preventDefault()
-                    if (confirm(`Delete "${project.topic}"?`))
-                      deleteProject.mutate(project.id)
+                    e.stopPropagation()
+                    deleteProject.mutate(project.id)
                   }}
                   className="absolute right-1 top-1/2 -translate-y-1/2 flex h-6 w-6 items-center justify-center rounded-md opacity-0 group-hover:opacity-100 hover:bg-sidebar-accent text-sidebar-foreground/50 hover:text-destructive transition-all"
                   title="Delete project"

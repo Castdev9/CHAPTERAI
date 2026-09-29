@@ -1,9 +1,15 @@
 "use client"
 
-import { useState } from "react"
-import { ArrowLeft, Upload, Tags, MessageCircle, FileText, Loader2, AlertCircle } from "lucide-react"
+import { useState, useCallback } from "react"
+import { ArrowLeft, Upload, Tags, MessageCircle, FileText, Loader2, AlertCircle, Copy, Check } from "lucide-react"
 import { useMutation } from "@tanstack/react-query"
 import { cn } from "@/lib/utils"
+import { useSpeechRecognition } from "@/hooks/use-speech-recognition"
+import { VoiceRecognitionButton } from "@/components/ui/voice-recognition-button"
+import { MicrophonePermissionDialog } from "@/components/ui/microphone-permission-dialog"
+import Markdown from "react-markdown"
+import remarkGfm from "remark-gfm"
+import { toast } from "sonner"
 
 interface QualitativeAnalysisProps {
   projectId: string
@@ -25,6 +31,29 @@ export function QualitativeAnalysis({ projectId, onBack }: QualitativeAnalysisPr
   const [analysisType, setAnalysisType] = useState<QualType | null>(null)
   const [researchTopic, setResearchTopic] = useState("")
   const [result, setResult] = useState<string | null>(null)
+
+  const handleVoiceTranscript = useCallback((text: string, isFinal: boolean) => {
+    if (isFinal) {
+      setInputText((prev) => {
+        const trimmed = prev.trim()
+        return trimmed ? `${trimmed} ${text}` : text
+      })
+    }
+  }, [])
+
+  const {
+    isListening,
+    interimTranscript,
+    isSupported,
+    permissionDenied,
+    setPermissionDenied,
+    requestPermission,
+    toggleListening,
+    stopListening,
+    startListening,
+  } = useSpeechRecognition({
+    onTranscript: handleVoiceTranscript,
+  })
 
   const runAnalysis = useMutation({
     mutationFn: async () => {
@@ -125,11 +154,43 @@ export function QualitativeAnalysis({ projectId, onBack }: QualitativeAnalysisPr
             </div>
 
             <div>
-              <label className="text-sm font-medium">Interview Transcripts / Text Data</label>
+              <div className="flex items-center justify-between mb-1">
+                <label className="text-sm font-medium">Interview Transcripts / Text Data</label>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-muted-foreground">Voice dictation:</span>
+                  <VoiceRecognitionButton
+                    isListening={isListening}
+                    onToggle={permissionDenied ? () => setPermissionDenied(true) : toggleListening}
+                    isSupported={isSupported}
+                    permissionDenied={permissionDenied}
+                    size="sm"
+                  />
+                </div>
+              </div>
+
+              {isListening && (
+                <div className="flex items-center justify-between bg-red-500/10 border border-red-500/30 px-3 py-1.5 rounded-lg mb-2 text-xs text-red-600 dark:text-red-400">
+                  <div className="flex items-center gap-2 truncate mr-2">
+                    <span className="h-2 w-2 rounded-full bg-red-500 animate-ping shrink-0" />
+                    <span className="font-semibold shrink-0">Dictating...</span>
+                    <span className="text-muted-foreground truncate">
+                      {interimTranscript ? `"${interimTranscript}"` : "Speak into your microphone..."}
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={stopListening}
+                    className="text-xs font-semibold underline hover:text-red-700 shrink-0"
+                  >
+                    Done
+                  </button>
+                </div>
+              )}
+
               <textarea
                 value={inputText}
                 onChange={(e) => setInputText(e.target.value)}
-                placeholder={`Paste your qualitative data here...
+                placeholder={`Paste your qualitative data here or click the microphone to speak...
 
 Example:
 Participant 1: I found the experience to be very challenging at first...
@@ -179,17 +240,44 @@ Participant 3: There were both positive and negative aspects...`}
 
           {result && (
             <div className="rounded-lg border">
-              <div className="border-b bg-muted/50 px-4 py-2 font-semibold text-sm flex items-center gap-2">
-                <FileText className="h-4 w-4 text-primary" />
-                Analysis Results
+              <div className="border-b bg-muted/50 px-4 py-2 font-semibold text-sm flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <FileText className="h-4 w-4 text-primary" />
+                  Analysis Results
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    navigator.clipboard.writeText(result)
+                    toast.success("Analysis results copied to clipboard")
+                  }}
+                  className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground"
+                >
+                  <Copy className="h-3.5 w-3.5" />
+                  Copy
+                </button>
               </div>
-              <div className="p-6 text-sm leading-relaxed whitespace-pre-wrap">
-                {result}
+              <div className="p-6 text-sm leading-relaxed prose prose-sm dark:prose-invert max-w-none">
+                <Markdown remarkPlugins={[remarkGfm]}>{result}</Markdown>
               </div>
             </div>
           )}
         </div>
       </div>
+
+      <MicrophonePermissionDialog
+        isOpen={permissionDenied}
+        onClose={() => setPermissionDenied(false)}
+        onRetry={async () => {
+          const granted = await requestPermission()
+          if (granted) {
+            setTimeout(() => {
+              startListening()
+            }, 150)
+          }
+          return granted
+        }}
+      />
     </div>
   )
 }

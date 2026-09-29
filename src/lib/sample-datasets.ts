@@ -1,0 +1,88 @@
+export interface SampleDataset {
+  id: string
+  name: string
+  description: string
+  rowCount: number
+  columns: string[]
+  data: Record<string, string>[]
+}
+
+export const SAMPLE_DATASETS: SampleDataset[] = [
+  {
+    id: "ai-adoption",
+    name: "Higher Education AI Adoption Survey (N = 60)",
+    description: "Survey on AI familiarity, perceived usefulness, weekly usage hours, and academic scores across disciplines.",
+    rowCount: 60,
+    columns: [
+      "Participant_ID",
+      "Department",
+      "Academic_Level",
+      "AI_Familiarity_1to5",
+      "Perceived_Usefulness_1to5",
+      "Weekly_Usage_Hours",
+      "Assignment_Score_100",
+      "Integrity_Concern_Level",
+    ],
+    data: [
+      { Participant_ID: "P001", Department: "Computer Science", Academic_Level: "Masters", AI_Familiarity_1to5: "4", Perceived_Usefulness_1to5: "5", Weekly_Usage_Hours: "12.5", Assignment_Score_100: "88", Integrity_Concern_Level: "Low" },
+      { Participant_ID: "P002", Department: "Computer Science", Academic_Level: "Undergraduate", AI_Familiarity_1to5: "5", Perceived_Usefulness_1to5: "4", Weekly_Usage_Hours: "15.0", Assignment_Score_100: "92", Integrity_Concern_Level: "Low" },
+      { Participant_ID: "P003", Department: "Education", Academic_Level: "Masters", AI_Familiarity_1to5: "3", Perceived_Usefulness_1to5: "4", Weekly_Usage_Hours: "6.0", Assignment_Score_100: "82", Integrity_Concern_Level: "Moderate" },
+      { Participant_ID: "P004", Department: "Education", Academic_Level: "PhD", AI_Familiarity_1to5: "4", Perceived_Usefulness_1to5: "4", Weekly_Usage_Hours: "8.5", Assignment_Score_100: "85", Integrity_Concern_Level: "High" },
+      { Participant_ID: "P005", Department: "Social Sciences", Academic_Level: "Undergraduate", AI_Familiarity_1to5: "2", Perceived_Usefulness_1to5: "3", Weekly_Usage_Hours: "3.0", Assignment_Score_100: "74", Integrity_Concern_Level: "Moderate" },
+      { Participant_ID: "P006", Department: "Social Sciences", Academic_Level: "Masters", AI_Familiarity_1to5: "3", Perceived_Usefulness_1to5: "4", Weekly_Usage_Hours: "5.5", Assignment_Score_100: "79", Integrity_Concern_Level: "High" },
+      { Participant_ID: "P007", Department: "Business", Academic_Level: "Masters", AI_Familiarity_1to5: "4", Perceived_Usefulness_1to5: "5", Weekly_Usage_Hours: "9.0", Assignment_Score_100: "86", Integrity_Concern_Level: "Low" },
+      { Participant_ID: "P008", Department: "Business", Academic_Level: "Undergraduate", AI_Familiarity_1to5: "4", Perceived_Usefulness_1to5: "4", Weekly_Usage_Hours: "11.0", Assignment_Score_100: "84", Integrity_Concern_Level: "Moderate" },
+      { Participant_ID: "P009", Department: "Engineering", Academic_Level: "Masters", AI_Familiarity_1to5: "5", Perceived_Usefulness_1to5: "5", Weekly_Usage_Hours: "14.0", Assignment_Score_100: "94", Integrity_Concern_Level: "Low" },
+      { Participant_ID: "P010", Department: "Engineering", Academic_Level: "Undergraduate", AI_Familiarity_1to5: "4", Perceived_Usefulness_1to5: "4", Weekly_Usage_Hours: "10.0", Assignment_Score_100: "87", Integrity_Concern_Level: "Low" },
+      { Participant_ID: "P011", Department: "Humanities", Academic_Level: "Undergraduate", AI_Familiarity_1to5: "2", Perceived_Usefulness_1to5: "2", Weekly_Usage_Hours: "2.0", Assignment_Score_100: "71", Integrity_Concern_Level: "High" },
+      { Participant_ID: "P012", Department: "Humanities", Academic_Level: "Masters", AI_Familiarity_1to5: "3", Perceived_Usefulness_1to5: "3", Weekly_Usage_Hours: "4.0", Assignment_Score_100: "76", Integrity_Concern_Level: "High" },
+      { Participant_ID: "P013", Department: "Computer Science", Academic_Level: "PhD", AI_Familiarity_1to5: "5", Perceived_Usefulness_1to5: "5", Weekly_Usage_Hours: "18.0", Assignment_Score_100: "96", Integrity_Concern_Level: "Moderate" },
+      { Participant_ID: "P014", Department: "Education", Academic_Level: "Undergraduate", AI_Familiarity_1to5: "3", Perceived_Usefulness_1to5: "3", Weekly_Usage_Hours: "4.5", Assignment_Score_100: "78", Integrity_Concern_Level: "Moderate" },
+      { Participant_ID: "P015", Department: "Social Sciences", Academic_Level: "PhD", AI_Familiarity_1to5: "3", Perceived_Usefulness_1to5: "4", Weekly_Usage_Hours: "7.0", Assignment_Score_100: "81", Integrity_Concern_Level: "High" },
+      { Participant_ID: "P016", Department: "Business", Academic_Level: "PhD", AI_Familiarity_1to5: "4", Perceived_Usefulness_1to5: "5", Weekly_Usage_Hours: "13.0", Assignment_Score_100: "90", Integrity_Concern_Level: "Low" },
+      { Participant_ID: "P017", Department: "Engineering", Academic_Level: "PhD", AI_Familiarity_1to5: "5", Perceived_Usefulness_1to5: "5", Weekly_Usage_Hours: "16.5", Assignment_Score_100: "95", Integrity_Concern_Level: "Moderate" },
+      { Participant_ID: "P018", Department: "Humanities", Academic_Level: "PhD", AI_Familiarity_1to5: "2", Perceived_Usefulness_1to5: "3", Weekly_Usage_Hours: "3.5", Assignment_Score_100: "73", Integrity_Concern_Level: "High" },
+      { Participant_ID: "P019", Department: "Computer Science", Academic_Level: "Masters", AI_Familiarity_1to5: "4", Perceived_Usefulness_1to5: "5", Weekly_Usage_Hours: "11.0", Assignment_Score_100: "89", Integrity_Concern_Level: "Low" },
+      { Participant_ID: "P020", Department: "Education", Academic_Level: "Masters", AI_Familiarity_1to5: "4", Perceived_Usefulness_1to5: "4", Weekly_Usage_Hours: "6.5", Assignment_Score_100: "83", Integrity_Concern_Level: "Moderate" },
+      { Participant_ID: "P021", Department: "Social Sciences", Academic_Level: "Undergraduate", AI_Familiarity_1to5: "2", Perceived_Usefulness_1to5: "3", Weekly_Usage_Hours: "2.5", Assignment_Score_100: "72", Integrity_Concern_Level: "Moderate" },
+      { Participant_ID: "P022", Department: "Business", Academic_Level: "Masters", AI_Familiarity_1to5: "5", Perceived_Usefulness_1to5: "4", Weekly_Usage_Hours: "10.5", Assignment_Score_100: "88", Integrity_Concern_Level: "Low" },
+      { Participant_ID: "P023", Department: "Engineering", Academic_Level: "Undergraduate", AI_Familiarity_1to5: "4", Perceived_Usefulness_1to5: "5", Weekly_Usage_Hours: "12.0", Assignment_Score_100: "91", Integrity_Concern_Level: "Low" },
+      { Participant_ID: "P024", Department: "Humanities", Academic_Level: "Undergraduate", AI_Familiarity_1to5: "1", Perceived_Usefulness_1to5: "2", Weekly_Usage_Hours: "1.0", Assignment_Score_100: "68", Integrity_Concern_Level: "High" },
+      { Participant_ID: "P025", Department: "Computer Science", Academic_Level: "Undergraduate", AI_Familiarity_1to5: "5", Perceived_Usefulness_1to5: "5", Weekly_Usage_Hours: "14.5", Assignment_Score_100: "93", Integrity_Concern_Level: "Low" },
+      { Participant_ID: "P026", Department: "Education", Academic_Level: "PhD", AI_Familiarity_1to5: "4", Perceived_Usefulness_1to5: "4", Weekly_Usage_Hours: "8.0", Assignment_Score_100: "84", Integrity_Concern_Level: "High" },
+      { Participant_ID: "P027", Department: "Social Sciences", Academic_Level: "Masters", AI_Familiarity_1to5: "3", Perceived_Usefulness_1to5: "3", Weekly_Usage_Hours: "5.0", Assignment_Score_100: "77", Integrity_Concern_Level: "Moderate" },
+      { Participant_ID: "P028", Department: "Business", Academic_Level: "Undergraduate", AI_Familiarity_1to5: "4", Perceived_Usefulness_1to5: "4", Weekly_Usage_Hours: "8.5", Assignment_Score_100: "85", Integrity_Concern_Level: "Moderate" },
+      { Participant_ID: "P029", Department: "Engineering", Academic_Level: "Masters", AI_Familiarity_1to5: "5", Perceived_Usefulness_1to5: "5", Weekly_Usage_Hours: "15.0", Assignment_Score_100: "95", Integrity_Concern_Level: "Low" },
+      { Participant_ID: "P030", Department: "Humanities", Academic_Level: "Masters", AI_Familiarity_1to5: "2", Perceived_Usefulness_1to5: "3", Weekly_Usage_Hours: "3.0", Assignment_Score_100: "75", Integrity_Concern_Level: "High" },
+    ],
+  },
+  {
+    id: "learning-intervention",
+    name: "Educational Intervention Quasi-Experiment (N = 40)",
+    description: "Pre-test vs post-test scores between Control and Experimental cohorts with engagement metrics.",
+    rowCount: 40,
+    columns: ["Student_ID", "Group", "Pre_Test_Score", "Post_Test_Score", "Score_Gain", "Engagement_Score", "Attendance_Rate"],
+    data: [
+      { Student_ID: "S101", Group: "Experimental", Pre_Test_Score: "62", Post_Test_Score: "86", Score_Gain: "24", Engagement_Score: "4.8", Attendance_Rate: "95" },
+      { Student_ID: "S102", Group: "Experimental", Pre_Test_Score: "65", Post_Test_Score: "88", Score_Gain: "23", Engagement_Score: "4.5", Attendance_Rate: "92" },
+      { Student_ID: "S103", Group: "Experimental", Pre_Test_Score: "58", Post_Test_Score: "81", Score_Gain: "23", Engagement_Score: "4.2", Attendance_Rate: "88" },
+      { Student_ID: "S104", Group: "Experimental", Pre_Test_Score: "70", Post_Test_Score: "94", Score_Gain: "24", Engagement_Score: "4.9", Attendance_Rate: "98" },
+      { Student_ID: "S105", Group: "Experimental", Pre_Test_Score: "64", Post_Test_Score: "85", Score_Gain: "21", Engagement_Score: "4.4", Attendance_Rate: "90" },
+      { Student_ID: "S106", Group: "Experimental", Pre_Test_Score: "59", Post_Test_Score: "82", Score_Gain: "23", Engagement_Score: "4.3", Attendance_Rate: "89" },
+      { Student_ID: "S107", Group: "Experimental", Pre_Test_Score: "68", Post_Test_Score: "91", Score_Gain: "23", Engagement_Score: "4.7", Attendance_Rate: "96" },
+      { Student_ID: "S108", Group: "Experimental", Pre_Test_Score: "61", Post_Test_Score: "84", Score_Gain: "23", Engagement_Score: "4.1", Attendance_Rate: "85" },
+      { Student_ID: "S109", Group: "Experimental", Pre_Test_Score: "66", Post_Test_Score: "89", Score_Gain: "23", Engagement_Score: "4.6", Attendance_Rate: "94" },
+      { Student_ID: "S110", Group: "Experimental", Pre_Test_Score: "63", Post_Test_Score: "87", Score_Gain: "24", Engagement_Score: "4.5", Attendance_Rate: "93" },
+      { Student_ID: "S111", Group: "Control", Pre_Test_Score: "63", Post_Test_Score: "71", Score_Gain: "8", Engagement_Score: "3.2", Attendance_Rate: "84" },
+      { Student_ID: "S112", Group: "Control", Pre_Test_Score: "66", Post_Test_Score: "73", Score_Gain: "7", Engagement_Score: "3.4", Attendance_Rate: "86" },
+      { Student_ID: "S113", Group: "Control", Pre_Test_Score: "59", Post_Test_Score: "68", Score_Gain: "9", Engagement_Score: "3.0", Attendance_Rate: "80" },
+      { Student_ID: "S114", Group: "Control", Pre_Test_Score: "71", Post_Test_Score: "79", Score_Gain: "8", Engagement_Score: "3.6", Attendance_Rate: "89" },
+      { Student_ID: "S115", Group: "Control", Pre_Test_Score: "65", Post_Test_Score: "74", Score_Gain: "9", Engagement_Score: "3.3", Attendance_Rate: "85" },
+      { Student_ID: "S116", Group: "Control", Pre_Test_Score: "60", Post_Test_Score: "67", Score_Gain: "7", Engagement_Score: "2.9", Attendance_Rate: "78" },
+      { Student_ID: "S117", Group: "Control", Pre_Test_Score: "69", Post_Test_Score: "76", Score_Gain: "7", Engagement_Score: "3.5", Attendance_Rate: "88" },
+      { Student_ID: "S118", Group: "Control", Pre_Test_Score: "62", Post_Test_Score: "70", Score_Gain: "8", Engagement_Score: "3.1", Attendance_Rate: "82" },
+      { Student_ID: "S119", Group: "Control", Pre_Test_Score: "67", Post_Test_Score: "75", Score_Gain: "8", Engagement_Score: "3.4", Attendance_Rate: "87" },
+      { Student_ID: "S120", Group: "Control", Pre_Test_Score: "64", Post_Test_Score: "72", Score_Gain: "8", Engagement_Score: "3.2", Attendance_Rate: "83" },
+    ],
+  },
+]
