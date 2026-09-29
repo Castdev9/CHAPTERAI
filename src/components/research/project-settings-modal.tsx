@@ -1,10 +1,11 @@
 "use client"
 
 import { useState } from "react"
-import { X, Settings } from "lucide-react"
+import { X, Settings, Mic, HelpCircle } from "lucide-react"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
 import type { ResearchMethodology, CitationStyle, AcademicLevel } from "@/types"
+import { MicrophonePermissionDialog } from "@/components/ui/microphone-permission-dialog"
 
 interface ProjectSettingsModalProps {
   project: {
@@ -57,6 +58,7 @@ export function ProjectSettingsModal({ project, onClose }: ProjectSettingsModalP
   const [country, setCountry] = useState(project.country)
   const [methodology, setMethodology] = useState(project.methodology)
   const [citationStyle, setCitationStyle] = useState(project.citationStyle)
+  const [showMicTroubleshoot, setShowMicTroubleshoot] = useState(false)
 
   const updateProject = useMutation({
     mutationFn: async (data: Record<string, string>) => {
@@ -188,6 +190,31 @@ export function ProjectSettingsModal({ project, onClose }: ProjectSettingsModalP
             />
           </div>
 
+          {/* Microphone & Voice Input Troubleshooting */}
+          <div className="rounded-xl border bg-muted/30 p-4 space-y-2.5">
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2.5">
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-primary shrink-0">
+                  <Mic className="h-4 w-4" />
+                </div>
+                <div>
+                  <h4 className="text-sm font-semibold leading-tight">Microphone & Voice Dictation</h4>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Troubleshoot browser permissions if voice-to-text is blocked
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowMicTroubleshoot(true)}
+                className="inline-flex items-center gap-1.5 rounded-lg border bg-background px-3 py-1.5 text-xs font-semibold shadow-xs hover:bg-muted transition-colors shrink-0"
+              >
+                <HelpCircle className="h-3.5 w-3.5 text-primary" />
+                Troubleshoot Microphone
+              </button>
+            </div>
+          </div>
+
           <div className="flex gap-3 pt-2">
             <button
               type="button"
@@ -205,6 +232,25 @@ export function ProjectSettingsModal({ project, onClose }: ProjectSettingsModalP
             </button>
           </div>
         </form>
+
+        <MicrophonePermissionDialog
+          isOpen={showMicTroubleshoot}
+          onClose={() => setShowMicTroubleshoot(false)}
+          onRetry={async () => {
+            if (typeof window !== "undefined" && navigator.mediaDevices?.getUserMedia) {
+              try {
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+                stream.getTracks().forEach((track) => track.stop())
+                toast.success("Microphone permission granted successfully!")
+                return true
+              } catch (err: any) {
+                console.warn("[Microphone] Access denied:", err)
+                return false
+              }
+            }
+            return false
+          }}
+        />
       </div>
     </div>
   )
